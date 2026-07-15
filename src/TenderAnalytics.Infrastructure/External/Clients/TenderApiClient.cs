@@ -8,7 +8,7 @@ namespace TenderAnalytics.Infrastructure.External.Clients;
 public sealed class TenderApiClient : ITenderApiClient
 {
     private const string InitialFeedPath =
-        "tenders?descending=1&limit=100&opt_fields=dateCreated,status";
+        "tenders?descending=1&limit=500&opt_fields=dateCreated,status";
 
     private readonly HttpClient _httpClient;
 

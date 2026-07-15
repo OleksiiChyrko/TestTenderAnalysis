@@ -8,6 +8,7 @@ using TenderAnalytics.Application.Interfaces.Repositories;
 using TenderAnalytics.Infrastructure.Persistence.Repositories;
 using TenderAnalytics.Application.Interfaces.Services;
 using TenderAnalytics.Application.Services;
+using TenderAnalytics.Infrastructure.Analytics;
 
 namespace TenderAnalytics.Infrastructure;
 
@@ -29,6 +30,7 @@ public static class DependencyInjection
 
         services.AddScoped<ITenderRepository, TenderRepository>();
         services.AddScoped<ITenderImportService, TenderImportService>();
+        services.AddScoped<IAnalyticsService, AnalyticsService>();
 
         services.AddHttpClient<ITenderApiClient, TenderApiClient>(client =>
         {
