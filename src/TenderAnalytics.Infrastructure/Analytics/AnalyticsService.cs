@@ -127,9 +127,7 @@ public sealed class AnalyticsService : IAnalyticsService
     {
         if (limit is < 1 or > 100)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(limit),
-                "Limit must be between 1 and 100.");
+            throw new ArgumentException("Limit must be between 1 and 100.");
         }
     }
 }

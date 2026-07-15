@@ -16,10 +16,34 @@ services:
       - tender-analytics-postgres-data:/var/lib/postgresql/data
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d tender_analytics"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U postgres -d tender_analytics"
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: src/TenderAnalytics.Api/Dockerfile
+
+    container_name: tender-analytics-api
+    restart: unless-stopped
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__PostgreSql: Host=postgres;Port=5432;Database=tender_analytics;Username=postgres;Password=postgres
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   tender-analytics-postgres-data:

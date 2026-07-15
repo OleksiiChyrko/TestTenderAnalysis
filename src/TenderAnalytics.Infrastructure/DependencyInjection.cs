@@ -1,14 +1,14 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using TenderAnalytics.Infrastructure.Persistence;
+using Polly;
 using TenderAnalytics.Application.Interfaces.External;
-using TenderAnalytics.Infrastructure.External.Clients;
 using TenderAnalytics.Application.Interfaces.Repositories;
-using TenderAnalytics.Infrastructure.Persistence.Repositories;
 using TenderAnalytics.Application.Interfaces.Services;
-using TenderAnalytics.Application.Services;
 using TenderAnalytics.Infrastructure.Analytics;
+using TenderAnalytics.Infrastructure.External.Clients;
+using TenderAnalytics.Infrastructure.Persistence;
+using TenderAnalytics.Infrastructure.Persistence.Repositories;
 
 namespace TenderAnalytics.Infrastructure;
 
@@ -29,16 +29,30 @@ public static class DependencyInjection
         });
 
         services.AddScoped<ITenderRepository, TenderRepository>();
-        services.AddScoped<ITenderImportService, TenderImportService>();
         services.AddScoped<IAnalyticsService, AnalyticsService>();
 
-        services.AddHttpClient<ITenderApiClient, TenderApiClient>(client =>
-        {
-            client.BaseAddress = new Uri(
-                "https://public-api.prozorro.gov.ua/api/2.5/");
+        services
+            .AddHttpClient<ITenderApiClient, TenderApiClient>(client =>
+            {
+                client.BaseAddress = new Uri(
+                    "https://public-api.prozorro.gov.ua/api/2.5/");
 
-            client.Timeout = TimeSpan.FromSeconds(30);
-        });
+                client.Timeout = Timeout.InfiniteTimeSpan;
+            })
+            .AddStandardResilienceHandler(options =>
+            {
+                options.Retry.MaxRetryAttempts = 3;
+                options.Retry.Delay = TimeSpan.FromSeconds(1);
+                options.Retry.BackoffType =
+                    DelayBackoffType.Exponential;
+
+                options.AttemptTimeout.Timeout =
+                    TimeSpan.FromSeconds(15);
+
+                options.TotalRequestTimeout.Timeout =
+                    TimeSpan.FromSeconds(45);
+            });
+
         return services;
     }
 }
