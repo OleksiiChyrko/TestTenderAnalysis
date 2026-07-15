@@ -1,0 +1,12 @@
+﻿using System.Text.Json.Serialization;
+
+namespace TenderAnalytics.Application.DTOs.External.Tender;
+
+public sealed class OrganizationDto
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; init; }
+
+    [JsonPropertyName("identifier")]
+    public OrganizationIdentifierDto? Identifier { get; init; }
+}
