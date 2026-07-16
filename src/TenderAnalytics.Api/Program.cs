@@ -21,13 +21,31 @@ builder.Services.AddSwaggerGen(options =>
     var xmlPath =
         Path.Combine(AppContext.BaseDirectory, xmlFile);
 
-    options.IncludeXmlComments(xmlPath);
+    if (File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath);
+    }
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(
+        "Frontend",
+        policy =>
+        {
+            policy
+                .WithOrigins(
+                    "http://localhost:5173")
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
 });
 
 builder.Services
     .AddHealthChecks()
     .AddDbContextCheck<AppDbContext>(
         name: "postgresql");
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -40,13 +58,15 @@ using (var scope = app.Services.CreateScope())
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
+app.UseCors("Frontend");
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.MapHealthChecks("/health");
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();

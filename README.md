@@ -169,13 +169,24 @@ Contains:
 | Documentation | Swagger / OpenAPI |
 | Testing | xUnit, Moq, FluentAssertions |
 | Containerization | Docker, Docker Compose |
-
+| Frontend | React, TypeScript, Vite |
+| Frontend tooling | ESLint |
 ---
 
 ## Project Structure
 
 ```text
 .
+├── frontend
+│   ├── public
+│   ├── src
+│   │   ├── api
+│   │   ├── components
+│   │   ├── pages
+│   │   └── types
+│   ├── .env.example
+│   ├── package.json
+│   └── vite.config.ts
 ├── src
 │   ├── TenderAnalytics.Api
 │   ├── TenderAnalytics.Application
@@ -397,6 +408,66 @@ Health:  http://localhost:5297/health
 
 ---
 
+## Frontend
+
+The repository includes a lightweight React dashboard built with Vite and TypeScript.
+
+### Configure the API URL
+
+Copy the example environment file:
+
+```bash
+cd frontend
+cp .env.example .env
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Default local configuration:
+
+```env
+VITE_API_URL=http://localhost:5297
+```
+
+When the API is running through Docker:
+
+```env
+VITE_API_URL=http://localhost:8080
+```
+
+The `.env.example` file is committed to the repository.  
+The local `.env` file is ignored by Git.
+
+### Install dependencies
+
+```bash
+cd frontend
+npm install
+```
+
+### Run the dashboard
+
+```bash
+npm run dev
+```
+
+The dashboard is available at:
+
+```text
+http://localhost:5173
+```
+
+### Validate the frontend
+
+```bash
+npm run lint
+npm run build
+```
+
 ## Database
 
 The normalized schema includes:
@@ -503,8 +574,8 @@ When a contract has several suppliers, the full contract amount is attributed to
 - Authentication and authorization
 - Prometheus metrics and distributed tracing
 - CI/CD pipeline
-- React dashboard
-
+- Frontend containerization and Docker Compose integration
+- Charts and extended dashboard filters
 ---
 
 ## License
