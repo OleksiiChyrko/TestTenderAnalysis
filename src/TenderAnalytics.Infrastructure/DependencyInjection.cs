@@ -27,10 +27,8 @@ public static class DependencyInjection
         {
             options.UseNpgsql(connectionString);
         });
-
-        services.AddScoped<ITenderRepository, TenderRepository>();
         services.AddScoped<IAnalyticsService, AnalyticsService>();
-
+        services.AddScoped<ITenderRepository, TenderRepository>();
         services
             .AddHttpClient<ITenderApiClient, TenderApiClient>(client =>
             {

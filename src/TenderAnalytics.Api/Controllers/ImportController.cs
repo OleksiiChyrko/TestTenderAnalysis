@@ -4,6 +4,10 @@ using TenderAnalytics.Application.Interfaces.Services;
 
 namespace TenderAnalytics.Api.Controllers;
 
+/// <summary>
+/// Provides endpoints for importing procurement data
+/// from the Prozorro public API.
+/// </summary>
 [ApiController]
 [Route("api/import")]
 public sealed class ImportController : ControllerBase
@@ -16,6 +20,17 @@ public sealed class ImportController : ControllerBase
         _importService = importService;
     }
 
+    /// <summary>
+    /// Imports a single tender by its identifier.
+    /// Only tenders matching the configured analytical criteria
+    /// are stored in the database.
+    /// </summary>
+    /// <param name="id">
+    /// Prozorro tender identifier.
+    /// </param>
+    /// <returns>
+    /// Import result for the requested tender.
+    /// </returns>
     [HttpPost("tender/{id}")]
     [ProducesResponseType(
         StatusCodes.Status200OK)]
@@ -56,6 +71,18 @@ public sealed class ImportController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Imports tenders from the paginated external feed.
+    /// Only tenders matching the specified filters
+    /// are downloaded and saved.
+    /// </summary>
+    /// <param name="request">
+    /// Feed import configuration including date range,
+    /// maximum number of pages and parallelism level.
+    /// </param>
+    /// <returns>
+    /// Import statistics and execution summary.
+    /// </returns>
     [HttpPost("feed")]
     [ProducesResponseType(
         typeof(ImportResult),

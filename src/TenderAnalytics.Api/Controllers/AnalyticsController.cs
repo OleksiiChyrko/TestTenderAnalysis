@@ -4,6 +4,9 @@ using TenderAnalytics.Application.Interfaces.Services;
 
 namespace TenderAnalytics.Api.Controllers;
 
+/// <summary>
+/// Provides analytical information based on imported procurement data.
+/// </summary>
 [ApiController]
 [Route("api/analytics")]
 public sealed class AnalyticsController : ControllerBase
@@ -16,6 +19,12 @@ public sealed class AnalyticsController : ControllerBase
         _analyticsService = analyticsService;
     }
 
+    /// <summary>
+    /// Calculates the total expected procurement budget,
+    /// the total value of signed contracts,
+    /// and the resulting budget savings.
+    /// </summary>
+    /// <returns>Aggregated budget savings statistics.</returns>
     [HttpGet("savings")]
     [ProducesResponseType(
         typeof(BudgetSavingsDto),
@@ -31,6 +40,14 @@ public sealed class AnalyticsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Returns the procuring organizations
+    /// with the highest total value of active contracts.
+    /// </summary>
+    /// <param name="limit">
+    /// Number of organizations to return (1-100).
+    /// </param>
+    /// <returns>Top procuring organizations.</returns>
     [HttpGet("top-procurers")]
     [ProducesResponseType(
         typeof(IReadOnlyCollection<TopProcurerDto>),
@@ -49,6 +66,14 @@ public sealed class AnalyticsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Returns suppliers ranked by the total value
+    /// of active contracts.
+    /// </summary>
+    /// <param name="limit">
+    /// Number of suppliers to return (1-100).
+    /// </param>
+    /// <returns>Top suppliers.</returns>
     [HttpGet("top-suppliers")]
     [ProducesResponseType(
         typeof(IReadOnlyCollection<TopSupplierDto>),

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 using TenderAnalytics.Application.DTOs.External.Feed;
 using TenderAnalytics.Application.DTOs.External.Tender;
 using TenderAnalytics.Application.DTOs.Import;
@@ -17,32 +18,52 @@ public sealed class TenderImportService : ITenderImportService
     private readonly ITenderApiClient _apiClient;
     private readonly ITenderMapper _mapper;
     private readonly ITenderRepository _repository;
+    private readonly ILogger<TenderImportService> _logger;
 
     public TenderImportService(
         ITenderApiClient apiClient,
         ITenderMapper mapper,
-        ITenderRepository repository)
+        ITenderRepository repository,
+        ILogger<TenderImportService> logger)
     {
         _apiClient = apiClient;
         _mapper = mapper;
         _repository = repository;
+        _logger = logger;
     }
 
     public async Task<bool> ImportTenderAsync(
         string tenderId,
         CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenderId);
+
+        _logger.LogInformation(
+            "Starting single tender import. TenderId: {TenderId}",
+            tenderId);
+
         var response = await _apiClient.GetTenderAsync(
             tenderId,
             cancellationToken);
 
         var source = response.Data;
-
         var request = CreateDefaultImportRequest();
 
-        if (source is null ||
-            !IsMatchingTender(source, request))
+        if (source is null)
         {
+            _logger.LogWarning(
+                "Tender response contains no data. TenderId: {TenderId}",
+                tenderId);
+
+            return false;
+        }
+
+        if (!IsMatchingTender(source, request))
+        {
+            _logger.LogInformation(
+                "Tender does not match import criteria. TenderId: {TenderId}",
+                tenderId);
+
             return false;
         }
 
@@ -51,6 +72,10 @@ public sealed class TenderImportService : ITenderImportService
         await _repository.UpsertAsync(
             tender,
             cancellationToken);
+
+        _logger.LogInformation(
+            "Tender import completed successfully. TenderId: {TenderId}",
+            tenderId);
 
         return true;
     }
@@ -62,6 +87,13 @@ public sealed class TenderImportService : ITenderImportService
         ArgumentNullException.ThrowIfNull(request);
 
         ValidateRequest(request);
+
+        _logger.LogInformation(
+            "Starting feed import. DateFrom: {DateFrom}, DateTo: {DateTo}, MaxPages: {MaxPages}, MaxConcurrency: {MaxConcurrency}",
+            request.DateFrom,
+            request.DateTo,
+            request.MaxPages,
+            request.MaxConcurrency);
 
         var result = new ImportResult();
         string? nextPageUri = null;
@@ -80,10 +112,16 @@ public sealed class TenderImportService : ITenderImportService
             result.FeedItemsProcessed += page.Data.Count;
 
             var candidates = page.Data
-                .Where(x => IsFeedCandidate(x, request))
+                .Where(item => IsFeedCandidate(item, request))
                 .ToList();
 
             result.CandidatesCount += candidates.Count;
+
+            _logger.LogInformation(
+                "Processed feed page {PageNumber}. FeedItems: {FeedItems}, Candidates: {Candidates}",
+                pageNumber + 1,
+                page.Data.Count,
+                candidates.Count);
 
             var downloadedTenders =
                 new ConcurrentBag<(string Id, TenderDto Data)>();
@@ -112,8 +150,14 @@ public sealed class TenderImportService : ITenderImportService
 
                         if (response.Data is null)
                         {
-                            downloadErrors.Add(
-                                $"{candidate.Id}: response data is empty.");
+                            var message =
+                                $"{candidate.Id}: response data is empty.";
+
+                            downloadErrors.Add(message);
+
+                            _logger.LogWarning(
+                                "Tender response contains no data. TenderId: {TenderId}",
+                                candidate.Id);
 
                             return;
                         }
@@ -127,8 +171,15 @@ public sealed class TenderImportService : ITenderImportService
                     }
                     catch (Exception exception)
                     {
-                        downloadErrors.Add(
-                            $"{candidate.Id}: {exception.Message}");
+                        var message =
+                            $"{candidate.Id}: {exception.Message}";
+
+                        downloadErrors.Add(message);
+
+                        _logger.LogWarning(
+                            exception,
+                            "Failed to download tender. TenderId: {TenderId}",
+                            candidate.Id);
                     }
                 });
 
@@ -146,6 +197,11 @@ public sealed class TenderImportService : ITenderImportService
                             request))
                     {
                         result.SkippedCount++;
+
+                        _logger.LogDebug(
+                            "Tender skipped because it does not match full import criteria. TenderId: {TenderId}",
+                            downloadedTender.Id);
+
                         continue;
                     }
 
@@ -157,6 +213,10 @@ public sealed class TenderImportService : ITenderImportService
                         cancellationToken);
 
                     result.ImportedCount++;
+
+                    _logger.LogInformation(
+                        "Tender imported successfully. TenderId: {TenderId}",
+                        downloadedTender.Id);
                 }
                 catch (OperationCanceledException)
                 {
@@ -168,6 +228,11 @@ public sealed class TenderImportService : ITenderImportService
 
                     result.Errors.Add(
                         $"{downloadedTender.Id}: {exception.Message}");
+
+                    _logger.LogWarning(
+                        exception,
+                        "Failed to map or save tender. TenderId: {TenderId}",
+                        downloadedTender.Id);
                 }
             }
 
@@ -176,9 +241,21 @@ public sealed class TenderImportService : ITenderImportService
             if (page.Data.Count == 0 ||
                 string.IsNullOrWhiteSpace(nextPageUri))
             {
+                _logger.LogInformation(
+                    "Feed import stopped because no next page is available.");
+
                 break;
             }
         }
+
+        _logger.LogInformation(
+            "Feed import completed. PagesProcessed: {PagesProcessed}, FeedItemsProcessed: {FeedItemsProcessed}, Candidates: {Candidates}, Imported: {Imported}, Skipped: {Skipped}, Failed: {Failed}",
+            result.PagesProcessed,
+            result.FeedItemsProcessed,
+            result.CandidatesCount,
+            result.ImportedCount,
+            result.SkippedCount,
+            result.FailedCount);
 
         return result;
     }
@@ -215,15 +292,13 @@ public sealed class TenderImportService : ITenderImportService
     {
         if (request.MaxPages <= 0)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(request.MaxPages),
+            throw new ArgumentException(
                 "MaxPages must be greater than zero.");
         }
 
         if (request.MaxConcurrency <= 0)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(request.MaxConcurrency),
+            throw new ArgumentException(
                 "MaxConcurrency must be greater than zero.");
         }
 
@@ -284,9 +359,9 @@ public sealed class TenderImportService : ITenderImportService
             return false;
         }
 
-        return tender.Items.Any(x =>
+        return tender.Items.Any(item =>
             string.Equals(
-                x.Classification?.Id,
+                item.Classification?.Id,
                 RequiredCpvCode,
                 StringComparison.OrdinalIgnoreCase));
     }
